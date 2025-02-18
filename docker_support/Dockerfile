@@ -1,5 +1,8 @@
 FROM continuumio/miniconda3:4.8.2
 
+ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
+
 ARG DEFAULT_HOST=127.0.0.1
 ARG QLIB_DATA=/data/stock_data/qlib_data
 ARG QUEUE_HOST=$DEFAULT_HOST
@@ -17,14 +20,17 @@ ARG SERVER_DIR=$QLIB_CODE/qlib-server
 WORKDIR $SERVER_DIR
 COPY . .
 
-RUN apt-get --allow-releaseinfo-change update\
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list\
+    && sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list\
+    && apt-get --allow-releaseinfo-change update\
     && apt-get install -y g++\
     && apt-get clean\
     && rm -rf /var/lib/apt/lists/*\
-    && pip install cython numpy -U\
-    && pip install git+https://github.com/microsoft/qlib\
+    && pip install --upgrade pip\
+    && pip install --upgrade cython packaging\
+    && pip install pyqlib\
     && cd $SERVER_DIR\
-    && python setup.py install\
+    && python -m pip install .\
     && pip install -U python-engineio==3.11.2 python-socketio==4.4.0 flask-socketio==3.1.2\
     && /bin/sed -i "s@<QLIB_DATA>@$QLIB_DATA@g" config_template.yaml\
     && /bin/sed -i "s@<QUEUE_HOST>@$QUEUE_HOST@g" config_template.yaml\
@@ -36,7 +42,7 @@ RUN apt-get --allow-releaseinfo-change update\
     && /bin/sed -i "s@<REDIS_PORT>@$REDIS_PORT@g" config_template.yaml\
     && /bin/sed -i "s@<REDIS_DB>@$REDIS_DB@g" config_template.yaml\
     && /bin/sed -i "s@<FLASK_SERVER_HOST>@$FLASK_SERVER_HOST@g" config_template.yaml\
-    && git clone https://github.com/vishnubob/wait-for-it.git
+    && git clone https://gitcode.com/gh_mirrors/wa/wait-for-it.git
 
 EXPOSE 9710
 CMD ["python", "main.py", "-c", "config_template.yaml"]
